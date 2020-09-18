@@ -1,6 +1,9 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
+const FRAMERATE = 60
+const FRAMETIME = 1000/60;
+
 class Drawable {
 	static default() {
 		return new Drawable(
@@ -80,12 +83,34 @@ function setup() {
 		objects.push(Drawable.default());
 	}
 	player = Drawable.player();
-	requestAnimationFrame(draw);
+	requestAnimationFrame(main);
 }
 
-function draw() {
+function drawBackground() {
 	ctx.fillStyle = "black";
 	ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+}
+
+function drawPlayer() {
+	player.render();
+}
+
+function drawCircles() {
+	objects.forEach((object) => object.render());
+}
+
+let dt = 0;
+
+function update(delta) {
+	dt += delta;
+	while (dt > FRAMETIME) {
+		updateCircles();
+		updatePlayer();
+		dt -= FRAMETIME;
+	}
+}
+
+function updateCircles() {
 	objects.forEach((object) => object.update());
 	objects = objects.filter((object) => {
 		if (object.x + object.r < -200) return false;
@@ -94,6 +119,34 @@ function draw() {
 		else if (object.y - object.r > canvas.clientHeight+ 200) return false;
 		return true;
 	})
+	while (objects.length < 50) {
+		objects.push(Drawable.offScreen());
+	}
+}
+
+let mouse = {
+	x: canvas.clientWidth / 2,
+	y: canvas.clientHeight / 2,
+}
+
+function updatePlayer() {
+	player.x = mouse.x;
+	player.y = mouse.y;
+}
+
+function draw() {
+	drawBackground();
+	drawCircles();
+	drawPlayer();
+	requestAnimationFrame(draw);
+}
+
+let previousTime = (new Date()).getTime();
+
+function main() {
+	const now = (new Date()).getTime();
+	update(now - previousTime);
+	previousTime = now;
 	objects = objects.filter((object) => {
 		if (Math.sqrt((object.x - player.x) ** 2 + (object.y - player.y) ** 2) < player.r + object.r) {
 			if (player.r > object.r) {
@@ -103,24 +156,17 @@ function draw() {
 		}
 		return true;
 	})
-	while (objects.length < 50) {
-		objects.push(Drawable.offScreen());
-	}
-	objects.forEach((object) => object.render());
-	player.render();
-	requestAnimationFrame(draw);
+	draw();
 }
 
 canvas.addEventListener('mousemove', (event) => {
-	const mousePosition = ((event) => {
+	mouse = (() => {
 		const rect = canvas.getBoundingClientRect();
 		return {
 			x: event.offsetX - rect.left,
 			y: event.offsetY - rect.top,
 		}
-	})(event);
-	player.x = mousePosition.x + player.r / 2;
-	player.y = mousePosition.y + player.r / 2;
+	})();
 });
 
 setup();
