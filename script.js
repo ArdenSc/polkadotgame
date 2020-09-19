@@ -1,13 +1,13 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-const FRAMERATE = 60
-const FRAMETIME = 1000/60;
+const FRAMERATE = 60;
+const FRAMETIME = 1000 / FRAMERATE;
 
 class Drawable {
 	static default() {
 		return new Drawable(
-			random(0, canvas.clientWidth), 
+			random(0, canvas.clientWidth),
 			random(0, canvas.clientHeight),
 			random(5, 50),
 			random(0, 100) >= 50
@@ -45,7 +45,7 @@ class Drawable {
 			0,
 			0,
 			"blue"
-		)
+		);
 	}
 
 	constructor(x, y, r, vx, vy, color) {
@@ -71,19 +71,17 @@ class Drawable {
 }
 
 let objects = [];
-let player = undefined;
+let player = Drawable.player();
 
 const random = (min, max) => {
 	return Math.floor(Math.random() * (max - min)) + min;
-}
+};
 
-function setup() {
-	objects = []
+function reset() {
+	objects = [];
 	while (objects.length < 50) {
 		objects.push(Drawable.default());
 	}
-	player = Drawable.player();
-	requestAnimationFrame(main);
 }
 
 function drawBackground() {
@@ -104,7 +102,7 @@ let dt = 0;
 function update(delta) {
 	dt += delta;
 	while (dt > FRAMETIME) {
-		updateCircles();
+		if (state === "playing") updateCircles();
 		updatePlayer();
 		dt -= FRAMETIME;
 	}
@@ -116,9 +114,9 @@ function updateCircles() {
 		if (object.x + object.r < -200) return false;
 		else if (object.x - object.r > canvas.clientWidth + 200) return false;
 		if (object.y + object.r < -200) return false;
-		else if (object.y - object.r > canvas.clientHeight+ 200) return false;
+		else if (object.y - object.r > canvas.clientHeight + 200) return false;
 		return true;
-	})
+	});
 	while (objects.length < 50) {
 		objects.push(Drawable.offScreen());
 	}
@@ -127,46 +125,59 @@ function updateCircles() {
 let mouse = {
 	x: canvas.clientWidth / 2,
 	y: canvas.clientHeight / 2,
-}
+};
 
 function updatePlayer() {
-	player.x = mouse.x;
-	player.y = mouse.y;
+	player.x = mouse.x + player.r / 2;
+	player.y = mouse.y + player.r / 2;
 }
 
 function draw() {
 	drawBackground();
 	drawCircles();
 	drawPlayer();
-	requestAnimationFrame(draw);
+	if (state === "stopped") {
+		ctx.fillStyle = "blue";
+		ctx.font = "60px Arial";
+		ctx.fillText("Click to start", canvas.clientWidth / 2, canvas.clientHeight / 2);
+	}
 }
 
-let previousTime = (new Date()).getTime();
+let previousTime = Date.now();
+let state = "stopped";
 
 function main() {
-	const now = (new Date()).getTime();
-	update(now - previousTime);
+	const now = Date.now();
+	const delta = now - previousTime;
 	previousTime = now;
-	objects = objects.filter((object) => {
-		if (Math.sqrt((object.x - player.x) ** 2 + (object.y - player.y) ** 2) < player.r + object.r) {
-			if (player.r > object.r) {
-				player.r += 2;
-				return false;
+	update(delta);
+	if (state === "playing") {
+		objects = objects.filter((object) => {
+			if (Math.sqrt((object.x - player.x) ** 2 + (object.y - player.y) ** 2) < player.r + object.r) {
+				if (player.r > object.r) {
+					player.r += 2;
+					return false;
+				}
+				state = "stopped";
+				reset();
 			}
-		}
-		return true;
-	})
+			return true;
+		});
+		if (state === "stopped") reset();
+	}
 	draw();
+	requestAnimationFrame(main);
 }
 
 canvas.addEventListener('mousemove', (event) => {
-	mouse = (() => {
-		const rect = canvas.getBoundingClientRect();
-		return {
-			x: event.offsetX - rect.left,
-			y: event.offsetY - rect.top,
-		}
-	})();
+	const rect = canvas.getBoundingClientRect();
+	mouse = {
+		x: event.offsetX - rect.left,
+		y: event.offsetY - rect.top,
+	};
 });
 
-setup();
+canvas.addEventListener('mousedown', () => { if (state === "stopped") state = "playing"; });
+
+reset();
+main();
