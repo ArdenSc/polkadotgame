@@ -1,8 +1,18 @@
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-const FRAMERATE = 60;
+const FRAMERATE = 144;
 const FRAMETIME = 1000 / FRAMERATE;
+
+const CIRCLE_COLORS = [
+	"#3C5764", "#E45F5F",
+	"#4ECDC4", "#45B7AF",
+	"#B2DA59", "#C7F464",
+];
+const PLAYER_COLOR = "#FFFFFF";
+const BACKGROUND_COLOR = "#EAEAEA";
+
+const SPEED = 1;
 
 class Drawable {
 	static default() {
@@ -10,13 +20,8 @@ class Drawable {
 			random(0, canvas.clientWidth),
 			random(0, canvas.clientHeight),
 			random(5, 50),
-			random(0, 100) >= 50
-				? random(-4, -1)
-				: random(1, 4),
-			random(0, 100) >= 50
-				? random(-4, -1)
-				: random(1, 4),
-			"white"
+			random(0, 2 * Math.PI),
+			CIRCLE_COLORS[ random(0, CIRCLE_COLORS.length) ],
 		);
 	}
 
@@ -27,13 +32,8 @@ class Drawable {
 				: random(canvas.clientWidth + 50, canvas.clientWidth + 100),
 			random(-100, canvas.clientHeight + 100),
 			random(5, 50),
-			random(0, 100) >= 50
-				? random(-4, -1)
-				: random(1, 4),
-			random(0, 100) >= 50
-				? random(-4, -1)
-				: random(1, 4),
-			"white"
+			random(0, 2 * Math.PI),
+			CIRCLE_COLORS[ random(0, CIRCLE_COLORS.length) ],
 		);
 	}
 
@@ -43,25 +43,39 @@ class Drawable {
 			canvas.clientHeight / 2,
 			10,
 			0,
-			0,
-			"blue"
+			PLAYER_COLOR,
+			true,
+			false,
 		);
 	}
 
-	constructor(x, y, r, vx, vy, color) {
+	constructor(x, y, r, d, color, shadow = false, movement = true) {
 		this.x = x;
 		this.y = y;
 		this.r = r;
-		this.vx = vx;
-		this.vy = vy;
+		this.vx = SPEED * Math.cos(d);
+		this.vy = SPEED * Math.sin(d);
+		if (!movement) {
+			this.vx = 0;
+			this.vy = 0;
+		}
 		this.color = color;
+		this.shadow = shadow;
 	}
 
 	render() {
+		ctx.save();
 		ctx.beginPath();
+		if (this.shadow) {
+			ctx.shadowOffsetX = 2;
+			ctx.shadowOffsetX = 2;
+			ctx.shadowColor = "#CCC";
+			ctx.shadowBlur = 1;
+		}
 		ctx.fillStyle = this.color;
 		ctx.arc(this.x, this.y, this.r, 0, 2 * Math.PI, false);
 		ctx.fill();
+		ctx.restore();
 	}
 
 	update() {
@@ -82,10 +96,12 @@ function reset() {
 	while (objects.length < 50) {
 		objects.push(Drawable.default());
 	}
+	player.r = 10;
+	canvas.style.cursor = 'auto';
 }
 
 function drawBackground() {
-	ctx.fillStyle = "black";
+	ctx.fillStyle = BACKGROUND_COLOR;
 	ctx.fillRect(0, 0, canvas.clientWidth, canvas.clientHeight);
 }
 
@@ -136,12 +152,35 @@ function draw() {
 	drawBackground();
 	drawCircles();
 	drawPlayer();
-	if (state === "stopped") {
-		ctx.fillStyle = "blue";
-		ctx.font = "60px Arial";
-		ctx.fillText("Click to start", canvas.clientWidth / 2, canvas.clientHeight / 2);
+	switch (state) {
+		case 'playing':
+			ctx.save();
+			ctx.fillStyle = "#FFFFFF";
+			ctx.textAlign = "right";
+			ctx.textBaseline = "top";
+			ctx.font = "bold 128px Arial";
+			ctx.shadowOffsetX = 2;
+			ctx.shadowOffsetX = 2;
+			ctx.shadowColor = "#CCC";
+			ctx.shadowBlur = 1;
+			ctx.fillText(player.r - 10, canvas.clientWidth - 24, 24);
+			ctx.restore();
+			break;
+
+		case 'stopped':
+			ctx.save();
+			ctx.fillStyle = "#FFFFFF";
+			ctx.textAlign = "center";
+			ctx.font = "96px Clicker Script";
+			ctx.shadowOffsetX = 2;
+			ctx.shadowOffsetX = 2;
+			ctx.shadowColor = "#CCC";
+			ctx.shadowBlur = 1;
+			ctx.fillText("Click to start", canvas.clientWidth / 2, canvas.clientHeight / 2);
+			ctx.restore();
 	}
 }
+
 
 let previousTime = Date.now();
 let state = "stopped";
@@ -155,7 +194,7 @@ function main() {
 		objects = objects.filter((object) => {
 			if (Math.sqrt((object.x - player.x) ** 2 + (object.y - player.y) ** 2) < player.r + object.r) {
 				if (player.r > object.r) {
-					player.r += 2;
+					player.r++;
 					return false;
 				}
 				state = "stopped";
@@ -177,7 +216,10 @@ canvas.addEventListener('mousemove', (event) => {
 	};
 });
 
-canvas.addEventListener('mousedown', () => { if (state === "stopped") state = "playing"; });
+canvas.addEventListener('mousedown', () => {
+	if (state === "stopped") state = "playing";
+	canvas.style.cursor = 'none';
+});
 
 reset();
 main();
